@@ -164,25 +164,26 @@ let runServer logger maxConcurrentOps bufferSize (binding: SocketBinding) startD
     while not (token.IsCancellationRequested) do
       try
         let acceptArgs = a.Pop()
-        let! r = accept listenSocket acceptArgs
-        match r with
-        | Choice1Of2 s ->
-          // start a new async worker for each accepted TCP client
-          let socket = acceptArgs.AcceptSocket
-          let remoteBinding =
-            let rep = socket.RemoteEndPoint :?> IPEndPoint
-            { ip = rep.Address; port = uint16 rep.Port }
-          let readArgs = b.Pop()
-          let writeArgs = c.Pop()
-          let transport = { socket = socket; readArgs = readArgs; writeArgs = writeArgs }
-          let shutdownTransport _ =
-            shutdownSocket socket
-            acceptArgs.AcceptSocket <- null
-            a.Push acceptArgs
-            b.Push readArgs
-            c.Push writeArgs
-          Async.Start (job logger serveClient remoteBinding transport bufferManager (async { do shutdownTransport()}), token)
-        | Choice2Of2 e -> failwith "failed to accept."
+        if acceptArgs <> null then 
+            let! r = accept listenSocket acceptArgs
+            match r with
+            | Choice1Of2 s ->
+              // start a new async worker for each accepted TCP client
+              let socket = acceptArgs.AcceptSocket
+              let remoteBinding =
+                let rep = socket.RemoteEndPoint :?> IPEndPoint
+                { ip = rep.Address; port = uint16 rep.Port }
+              let readArgs = b.Pop()
+              let writeArgs = c.Pop()
+              let transport = { socket = socket; readArgs = readArgs; writeArgs = writeArgs }
+              let shutdownTransport _ =
+                shutdownSocket socket
+                acceptArgs.AcceptSocket <- null
+                a.Push acceptArgs
+                b.Push readArgs
+                c.Push writeArgs
+              Async.Start (job logger serveClient remoteBinding transport bufferManager (async { do shutdownTransport()}), token)
+            | Choice2Of2 e -> failwith "failed to accept."
       with ex -> "failed to accept a client" |> Log.interne logger "Suave.Tcp.tcpIpServer" ex
     return ()
   with ex ->
