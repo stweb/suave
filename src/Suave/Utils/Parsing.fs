@@ -28,15 +28,18 @@ module Parsing =
   /// parse the url into its constituents and fill out the passed dictionary with
   /// query string key-value pairs
   let inline parseUrl (line : string) =
-    let parts = line.Split(' ')
-    if parts.Length < 2 || parts.Length > 3 then failwith (sprintf "invalid url: '%s'" line)
-    let indexOfMark = parts.[1].IndexOf('?')
+    try
+        let parts = line.Split(' ')
+        if parts.Length < 2 || parts.Length > 3 then failwith (sprintf "invalid url: '%s'" line)
+        let indexOfMark = parts.[1].IndexOf('?')
 
-    if indexOfMark > 0 then
-      let rawQuery = parts.[1].Substring(indexOfMark + 1)
-      (parts.[0], parts.[1].Substring(0,indexOfMark), rawQuery, parts.[2])
-    else
-      (parts.[0], parts.[1], String.Empty, parts.[2])
+        if indexOfMark > 0 then
+          let rawQuery = parts.[1].Substring(indexOfMark + 1)
+          (parts.[0], parts.[1].Substring(0,indexOfMark), rawQuery, parts.[2])
+        else
+          (parts.[0], parts.[1], String.Empty, parts.[2])
+    with e -> 
+        failwith e.Message
 
   /// Parse a string array of key-value-pairs, combined using the equality character '='
   /// into a dictionary
