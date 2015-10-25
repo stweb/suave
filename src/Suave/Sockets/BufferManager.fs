@@ -2,6 +2,7 @@
 
 open System
 open System.Collections.Generic
+open System.Collections.Concurrent
 
 open Suave
 
@@ -19,29 +20,32 @@ type BufferManager(totalBytes, bufferSize, logger) =
 
   /// the underlying byte array maintained by the Buffer Manager
   let buffer = Array.zeroCreate totalBytes
-  let freeOffsets = new Stack<int>()
+  let freeOffsets = new ConcurrentStack<int>()
 
   /// Pops a buffer from the buffer pool
   member x.PopBuffer(?context : string) : ArraySegment<byte> =
-    let offset, freeCount = lock freeOffsets (fun _ ->
-      freeOffsets.Pop(), freeOffsets.Count)
-    Log.internf logger "Suave.Socket.BufferManager" (fun fmt ->
-      fmt "reserving buffer: %d, free count: %d [%s]" offset freeCount (defaultArg context "no-ctx"))
+    let success, offset = freeOffsets.TryPop()
+    if not success then
+        Log.internf logger "Suave.Socket.BufferManager" (fun fmt ->
+            fmt "cound not POP reserving buffer: %d [%s]" offset (defaultArg context "no-ctx"))
+        failwith "PopBuffer FAILED - out of buffers, need to increase maxOps at startup" // TODO dynamically resize
+    else
+        Log.internf logger "Suave.Socket.BufferManager" (fun fmt ->
+            fmt "reserving buffer: %d [%s]" offset (defaultArg context "no-ctx"))
     ArraySegment(buffer, offset, bufferSize)
 
   /// Initialise the memory required to use this BufferManager
   member x.Init() =
-    lock freeOffsets (fun _ ->
-      let mutable runningOffset = 0
-      while runningOffset < totalBytes - bufferSize do
-        freeOffsets.Push runningOffset
-        runningOffset <- runningOffset + bufferSize)
+    let mutable runningOffset = 0
+    while runningOffset < totalBytes - bufferSize do
+      freeOffsets.Push runningOffset
+      runningOffset <- runningOffset + bufferSize
 
   /// Frees the buffer back to the buffer pool
   member x.FreeBuffer(args : ArraySegment<_>, ?context : string) =
-    let freeCount = lock freeOffsets (fun _ ->
-      if freeOffsets.Contains args.Offset then failwithf "double free buffer %d" args.Offset
-      freeOffsets.Push args.Offset
-      freeOffsets.Count)
-    Log.internf logger "Suave.Socket.BufferManager" (fun fmt ->
-      fmt "freeing buffer: %d, free count: %d [%s]" args.Offset freeCount (defaultArg context "no-ctx"))
+    // if freeOffsets.Contains args.Offset then failwithf "double free buffer %d" args.Offset
+      
+    freeOffsets.Push args.Offset
+    //let count = freeOffsets.Count // may change since Push 
+
+    //Log.internf logger "Suave.Socket.BufferManager" (fun fmt ->  fmt "freeing buffer: %d, free count: %d [%s]" args.Offset count (defaultArg context "no-ctx"))
