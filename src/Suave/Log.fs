@@ -9,6 +9,9 @@ module Log =
   open Suave.Logging
   open Suave.Utils
 
+  let error (logger : Logger) path trace message =
+    logger.Log LogLevel.Error (fun _ -> LogLine.mk path LogLevel.Verbose trace None message)
+
   let verbose (logger : Logger) path trace message =
     logger.Log LogLevel.Verbose (fun _ -> LogLine.mk path LogLevel.Verbose trace None message)
 

@@ -533,6 +533,7 @@ module internal ParsingAndControl =
 
     let rec loop (ctx : HttpContext) = async {
 
+      let error    = Log.error runtime.logger "Suave.Web.httpLoop.loop" TraceHeader.empty
       let verbose  = Log.verbose runtime.logger "Suave.Web.httpLoop.loop" TraceHeader.empty
       let verbosef = Log.verbosef runtime.logger "Suave.Web.httpLoop.loop" TraceHeader.empty
 
@@ -564,7 +565,7 @@ module internal ParsingAndControl =
                   free "Suave.Web.httpLoop.loop (case Choice2Of2, else branch)" ctx.connection
                   return ()
           | Choice2Of2 err ->
-            verbose (sprintf "Socket error while running webpart, exiting: %A" err)
+            error (sprintf "Socket error while running webpart, exiting: %A" err)
       | Choice2Of2 err ->
         match err with
         | InputDataError msg ->
@@ -574,10 +575,10 @@ module internal ParsingAndControl =
           | Choice1Of2 _ ->
             verbose "Exiting http loop"
           | Choice2Of2 err ->
-            verbose (sprintf "Socket error while sending BAD_REQUEST, exiting: %A" err)
+            error (sprintf "Socket error while sending BAD_REQUEST, exiting: %A" err)
 
         | err ->
-          verbose (sprintf "Socket error while processing request, exiting: %A" err)
+          error (sprintf "Socket error while processing request, exiting: %A" err)
     }
     loop ctxOuter
 
