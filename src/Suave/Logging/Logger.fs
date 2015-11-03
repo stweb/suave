@@ -70,3 +70,9 @@ module Loggers =
       CombiningLogger(
         [ ConsoleWindowLogger(level)
           OutputWindowLogger(level) ]) :> Logger
+
+  // do nothing logger
+  type NullLogger(minLevel, ?formatter) =
+    interface Logger with
+      member x.Log level fLine = ()
+
